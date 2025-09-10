@@ -203,13 +203,6 @@ function generateRecommendations(results) {
         });
     }
     
-    if (!results.fssaiLicense) {
-        recommendations.push({
-            issue: "Missing FSSAI License (for food products)",
-            solution: "Include FSSAI License Number (14-digit alphanumeric) for food products"
-        });
-    }
-    
     if (!results.bestBeforeDate) {
         recommendations.push({
             issue: "Missing Best Before Date",
