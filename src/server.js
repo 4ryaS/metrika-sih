@@ -9,39 +9,44 @@ const port = 3000;
 
 app.use(express.json());
 
-// API Endpoint to check compliance
 app.post('/check-compliance', async (req, res) => {
     const { url } = req.body;
-
     if (!url) {
         return res.status(400).json({ error: 'Product URL is required.' });
     }
 
     try {
-        // Step 1: Scrape text and image URL from the product page
         console.log(`Starting check for URL: ${url}`);
+        // 1. Scrape all data from the product page
         const scrapedData = await scrapeProductData(url);
 
-        if (!scrapedData.imageUrl) {
-            return res.status(404).json({ error: 'Could not find a product image to analyze.' });
+        if (!scrapedData.imageUrls || scrapedData.imageUrls.length === 0) {
+            return res.status(404).json({ error: 'Could not find any product images to analyze.' });
         }
 
-        // Step 2: Perform OCR on the scraped image
-        const ocrText = await getTextFromImage(scrapedData.imageUrl);
+        // 2. Perform OCR on all images concurrently for speed
+        let combinedOcrText = '';
+        const ocrPromises = scrapedData.imageUrls.map(imageUrl => getTextFromImage(imageUrl));
+        const ocrResults = await Promise.allSettled(ocrPromises);
 
-        // Step 3: Run the combined data through the rule engine
-        const report = checkCompliance(scrapedData, ocrText);
+        ocrResults.forEach(result => {
+            if (result.status === 'fulfilled') {
+                combinedOcrText += result.value + '\n';
+            }
+        });
+        
+        // 3. Run the data through the rule engine
+        const report = checkCompliance(scrapedData, combinedOcrText);
 
-        // Step 4: Return the final report
+        // 4. Return the final report
         res.status(200).json({
             sourceUrl: url,
-            scrapedData: {
-                title: scrapedData.title,
-                description: scrapedData.description.substring(0, 200) + '...', // Truncate for brevity
-                imageUrl: scrapedData.imageUrl
-            },
-            ocrExtractedText: ocrText.substring(0, 300) + '...', // Truncate
-            complianceReport: report
+            productTitle: scrapedData.title,
+            brand: scrapedData.brand,
+            complianceReport: report,
+            scrapedData: scrapedData,
+            // Truncate OCR text in response for brevity
+            ocrExtractedText: combinedOcrText.substring(0, 500) + (combinedOcrText.length > 500 ? '...' : '')
         });
 
     } catch (error) {
@@ -50,5 +55,6 @@ app.post('/check-compliance', async (req, res) => {
 });
 
 app.listen(port, () => {
-    console.log(`CompliSight server is running at http://localhost:${port}`);
+    console.log(`CompliSight server running at http://localhost:${port}`);
+    console.log('Send a POST request to /check-compliance with a JSON body like: { "url": "your-amazon-product-url" }');
 });
