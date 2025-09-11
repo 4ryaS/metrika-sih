@@ -157,7 +157,8 @@ async function scrapeProductData(url) {
             '#imageBlockThumbs img',
             '#imageBlock_feature_div img',
             '.a-carousel-container img',
-            '[data-old-hires]'
+            '[data-old-hires]',
+            '#altImages .a-button-input'
         ];
 
         // Get main product image first
